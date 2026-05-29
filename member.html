@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Reports — Μέλος</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── CONFIG: ΑΛΛΑΞΕ ΤΟ API_URL ── */
+  :root {
+    --api: 'PASTE_YOUR_APPS_SCRIPT_URL_HERE';
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #F7F6F2;
+    --surface:  #FFFFFF;
+    --border:   #E2E0D8;
+    --text:     #1A1916;
+    --muted:    #7A7870;
+    --accent:   #1A4A2E;
+    --accent-l: #EAF3DE;
+    --warn:     #7A4A00;
+    --warn-l:   #FFF3DC;
+    --danger:   #7A1A1A;
+    --danger-l: #FDEAEA;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+    --radius:   6px;
+  }
+
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; min-height: 100vh; }
+
+  /* ── LOADING ── */
+  #loading { display:flex; align-items:center; justify-content:center; min-height:100vh; flex-direction:column; gap:16px; }
+  .spinner { width:32px; height:32px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── LOGIN ── */
+  #login-screen { display:none; max-width:360px; margin:80px auto; padding:0 20px; }
+  .login-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:32px; }
+  .login-card h1 { font-size:15px; font-weight:500; margin-bottom:6px; }
+  .login-card p  { font-size:13px; color:var(--muted); margin-bottom:24px; }
+  .member-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .member-btn  { padding:10px 8px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface); cursor:pointer; font-family:var(--sans); font-size:13px; font-weight:500; color:var(--text); text-align:center; transition:border-color 0.15s, background 0.15s; }
+  .member-btn:hover { border-color:var(--accent); background:var(--accent-l); }
+
+  /* ── MAIN APP ── */
+  #app { display:none; max-width:680px; margin:0 auto; padding:24px 20px; }
+
+  .top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+  .top-bar-left { display:flex; align-items:center; gap:12px; }
+  .avatar { width:36px; height:36px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:500; flex-shrink:0; }
+  .top-bar h1 { font-size:15px; font-weight:500; }
+  .top-bar .period { font-size:12px; color:var(--muted); font-family:var(--mono); }
+  .logout-btn { font-size:12px; color:var(--muted); background:none; border:none; cursor:pointer; padding:4px 8px; }
+  .logout-btn:hover { color:var(--text); }
+
+  .progress-strip { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 20px; margin-bottom:24px; display:flex; align-items:center; gap:20px; }
+  .pct-num { font-size:28px; font-weight:500; font-family:var(--mono); color:var(--accent); min-width:56px; }
+  .pct-bar-wrap { flex:1; }
+  .pct-label { font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .pct-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .pct-fill { height:100%; background:var(--accent); border-radius:3px; transition:width 0.4s ease; }
+  .pct-counts { display:flex; gap:16px; margin-top:8px; font-size:12px; color:var(--muted); }
+
+  .task-list { display:flex; flex-direction:column; gap:10px; }
+
+  .task-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px; transition:border-color 0.15s; }
+  .task-card.is-done   { border-color:#9FE1CB; background:#F6FDF9; }
+  .task-card.is-missed { border-color:#F7C1C1; background:#FDF6F6; }
+
+  .task-top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .task-name { font-weight:500; font-size:14px; line-height:1.4; }
+  .freq-tag  { font-size:11px; font-family:var(--mono); background:var(--bg); border:1px solid var(--border); padding:2px 8px; border-radius:20px; white-space:nowrap; color:var(--muted); }
+
+  .task-actions { display:flex; gap:8px; align-items:center; }
+  .act-btn { width:36px; height:36px; border-radius:50%; border:1px solid var(--border); background:transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; transition:all 0.15s; flex-shrink:0; }
+  .act-btn:hover { border-color:var(--muted); }
+  .act-btn.active-done   { background:#1D9E75; border-color:#1D9E75; color:#fff; }
+  .act-btn.active-missed { background:#E24B4A; border-color:#E24B4A; color:#fff; }
+
+  .note-row { display:flex; gap:8px; align-items:center; margin-top:2px; }
+  .note-input { flex:1; border:1px solid var(--border); border-radius:var(--radius); padding:7px 10px; font-family:var(--sans); font-size:13px; background:var(--bg); color:var(--text); }
+  .note-input:focus { outline:none; border-color:var(--accent); background:#fff; }
+  .save-btn { padding:7px 14px; border:1px solid var(--accent); border-radius:var(--radius); background:var(--accent); color:#fff; cursor:pointer; font-size:13px; font-family:var(--sans); white-space:nowrap; }
+  .save-btn:hover { opacity:0.85; }
+  .save-btn.saving { opacity:0.6; pointer-events:none; }
+
+  .saved-tick { font-size:12px; color:#1D9E75; display:none; }
+  .saved-tick.show { display:inline; }
+
+  .section-note { font-size:12px; color:var(--muted); text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border); }
+
+  /* ── ERROR ── */
+  .error-box { background:var(--danger-l); border:1px solid #F7C1C1; border-radius:var(--radius); padding:12px 16px; font-size:13px; color:var(--danger); margin:20px 0; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <span style="font-size:13px;color:#7A7870">Φόρτωση...</span>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Εργαστήριο Μοριακής Οικολογίας</h1>
+    <p>Επέλεξε το όνομά σου για να δεις τα tasks σου</p>
+    <div class="member-grid" id="member-grid"></div>
+    <div id="login-error" class="error-box" style="display:none"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="avatar" id="av"></div>
+      <div>
+        <h1 id="member-name-h"></h1>
+        <div class="period" id="period-label"></div>
+      </div>
+    </div>
+    <button class="logout-btn" onclick="logout()">← Αλλαγή χρήστη</button>
+  </div>
+
+  <div class="progress-strip">
+    <div class="pct-num" id="pct-num">0%</div>
+    <div class="pct-bar-wrap">
+      <div class="pct-label">Ολοκλήρωση tasks περιόδου</div>
+      <div class="pct-bar"><div class="pct-fill" id="pct-fill" style="width:0%"></div></div>
+      <div class="pct-counts" id="pct-counts"></div>
+    </div>
+  </div>
+
+  <div class="task-list" id="task-list"></div>
+
+  <div class="section-note">Οι αλλαγές αποθηκεύονται αυτόματα · Περίοδος κλείνει στις <span id="period-end"></span></div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+var API_URL = 'https://script.google.com/macros/s/AKfycbxqvrbdlhbma911FQZMA3VIUjMYu-v8NRprEbI9Hh24JBTk_SQoyKA-2RShhcSSACY8/exec'; // ← ΑΛΛΑΞΕ ΑΠΟ ΤΟ APPS SCRIPT DEPLOY URL
+
+// ── STATE ─────────────────────────────────────────────────────
+var state = { member: null, tasks: [], reports: {}, period: '' };
+
+// ── PERIOD HELPERS ────────────────────────────────────────────
+function getCurrentPeriod() {
+  var d = new Date(), m = String(d.getMonth()+1).padStart(2,'0'), h = d.getDate()<=15?'A':'B';
+  return d.getFullYear()+'-'+m+'-'+h;
+}
+function periodLabel(p) {
+  var months = ['','Ιαν','Φεβ','Μαρ','Απρ','Μάι','Ιούν','Ιούλ','Αύγ','Σεπ','Οκτ','Νοε','Δεκ'];
+  var parts = p.split('-'), mo = parseInt(parts[1]), half = parts[2]==='A'?'1–15':'16–τέλος';
+  return months[mo]+' '+parts[0]+' · '+half;
+}
+function periodEndDate(p) {
+  var parts = p.split('-'), y = parseInt(parts[0]), mo = parseInt(parts[1]);
+  if (parts[2]==='A') return '15/'+String(mo).padStart(2,'0');
+  var last = new Date(y, mo, 0).getDate();
+  return last+'/'+String(mo).padStart(2,'0');
+}
+
+// ── API CALLS ─────────────────────────────────────────────────
+function api(params) {
+  var url = API_URL + '?' + Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
+  return fetch(url).then(function(r){ return r.json(); });
+}
+
+// ── BOOT ──────────────────────────────────────────────────────
+var ALL_MEMBERS = [
+  {id:'alonaris',name:'Αλωνάρης',initials:'ΑΛ'},
+  {id:'spanou',name:'Σπάνου',initials:'ΣΠ'},
+  {id:'triantafyllou',name:'Τριανταφύλλου',initials:'ΤΡ'},
+  {id:'zachariadou',name:'Ζαχαριάδου',initials:'ΖΑ'},
+  {id:'papadaki',name:'Παπαδάκη',initials:'ΠΑ'},
+  {id:'protopappas',name:'Πρωτόπαππας',initials:'ΠΡ'},
+  {id:'konstantinidis',name:'Κωνσταντινίδης',initials:'ΚΩ'},
+  {id:'lepenos',name:'Λεπενού',initials:'ΛΕ'},
+  {id:'stranga',name:'Στράγγα',initials:'ΣΤ'},
+  {id:'mparklessia',name:'Μπαρκλέσια',initials:'ΜΠ'},
+];
+
+window.addEventListener('DOMContentLoaded', function() {
+  // Render member grid
+  var grid = document.getElementById('member-grid');
+  ALL_MEMBERS.forEach(function(m) {
+    var btn = document.createElement('button');
+    btn.className = 'member-btn';
+    btn.textContent = m.name;
+    btn.onclick = function(){ loginAs(m); };
+    grid.appendChild(btn);
+  });
+
+  // Check localStorage for saved session
+  var saved = localStorage.getItem('lab_member');
+  if (saved) {
+    var m = JSON.parse(saved);
+    loginAs(m);
+  } else {
+    show('login-screen');
+  }
+});
+
+function show(id) {
+  ['loading','login-screen','app'].forEach(function(v){ document.getElementById(v).style.display='none'; });
+  document.getElementById(id).style.display = id==='app'?'block':'';
+  if (id==='login-screen') document.getElementById('login-screen').style.display='block';
+}
+
+function loginAs(member) {
+  show('loading');
+  state.period = getCurrentPeriod();
+  localStorage.setItem('lab_member', JSON.stringify(member));
+
+  api({ action:'getConfig', member: member.id }).then(function(cfg) {
+    if (cfg.error) { show('login-screen'); document.getElementById('login-error').textContent=cfg.error; document.getElementById('login-error').style.display='block'; return; }
+    state.member = cfg.member;
+    state.tasks  = cfg.tasks;
+    return api({ action:'getReports', member: member.id, period: state.period });
+  }).then(function(rep) {
+    if (!rep) return;
+    state.reports = {};
+    (rep.reports||[]).forEach(function(r){ state.reports[r.taskId] = r; });
+    renderApp();
+    show('app');
+  }).catch(function(err) {
+    show('login-screen');
+    document.getElementById('login-error').textContent = 'Σφάλμα σύνδεσης. Δοκίμασε ξανά.';
+    document.getElementById('login-error').style.display='block';
+  });
+}
+
+function logout() {
+  localStorage.removeItem('lab_member');
+  state = { member: null, tasks: [], reports: {}, period: '' };
+  show('login-screen');
+}
+
+// ── RENDER APP ────────────────────────────────────────────────
+function renderApp() {
+  var m = state.member;
+  document.getElementById('av').textContent = m.initials;
+  document.getElementById('member-name-h').textContent = m.name;
+  document.getElementById('period-label').textContent = periodLabel(state.period);
+  document.getElementById('period-end').textContent = periodEndDate(state.period);
+  renderProgress();
+  renderTasks();
+}
+
+function renderProgress() {
+  var total = state.tasks.length, done = 0, missed = 0;
+  state.tasks.forEach(function(t) {
+    var s = (state.reports[t.id]||{}).status||'pending';
+    if (s==='done') done++;
+    else if (s==='missed') missed++;
+  });
+  var pending = total - done - missed;
+  var pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('pct-num').textContent = pct+'%';
+  document.getElementById('pct-fill').style.width = pct+'%';
+  document.getElementById('pct-counts').innerHTML =
+    '<span>✓ '+done+' έγιναν</span><span>⏳ '+pending+' εκκρεμείς</span>'+(missed?'<span>✕ '+missed+' παραλείφθηκαν</span>':'');
+}
+
+function renderTasks() {
+  var list = document.getElementById('task-list');
+  list.innerHTML = '';
+  state.tasks.forEach(function(t) {
+    var r = state.reports[t.id] || { status:'pending', note:'' };
+    var isDone = r.status==='done', isMissed = r.status==='missed';
+    var card = document.createElement('div');
+    card.className = 'task-card'+(isDone?' is-done':isMissed?' is-missed':'');
+    card.id = 'card-'+t.id;
+    card.innerHTML =
+      '<div class="task-top">'+
+        '<div class="task-name">'+t.label+'</div>'+
+        '<span class="freq-tag">'+t.freq+'</span>'+
+      '</div>'+
+      '<div class="task-actions">'+
+        '<button class="act-btn'+(isDone?' active-done':'')+'" id="btn-done-'+t.id+'" title="Εκτελέστηκε" onclick="toggleStatus(\''+t.id+'\',\'done\')">✓</button>'+
+        '<button class="act-btn'+(isMissed?' active-missed':'')+'" id="btn-miss-'+t.id+'" title="Δεν έγινε" onclick="toggleStatus(\''+t.id+'\',\'missed\')">✕</button>'+
+        '<div class="note-row" style="flex:1">'+
+          '<input class="note-input" id="note-'+t.id+'" placeholder="Σχόλιο / παρατήρηση..." value="'+(r.note||'').replace(/"/g,'&quot;')+'" onchange="saveNote(\''+t.id+'\')" />'+
+          '<span class="saved-tick" id="tick-'+t.id+'">αποθηκεύτηκε</span>'+
+        '</div>'+
+      '</div>';
+    list.appendChild(card);
+  });
+}
+
+function toggleStatus(taskId, newStatus) {
+  var current = (state.reports[taskId]||{}).status||'pending';
+  var s = current===newStatus ? 'pending' : newStatus;
+  setReport(taskId, s, (state.reports[taskId]||{}).note||'');
+}
+
+function saveNote(taskId) {
+  var note = document.getElementById('note-'+taskId).value;
+  var s = (state.reports[taskId]||{}).status||'pending';
+  setReport(taskId, s, note);
+}
+
+function setReport(taskId, status, note) {
+  state.reports[taskId] = { status:status, note:note };
+  renderProgress();
+
+  // Update card classes
+  var card = document.getElementById('card-'+taskId);
+  card.className = 'task-card'+(status==='done'?' is-done':status==='missed'?' is-missed':'');
+  document.getElementById('btn-done-'+taskId).className = 'act-btn'+(status==='done'?' active-done':'');
+  document.getElementById('btn-miss-'+taskId).className = 'act-btn'+(status==='missed'?' active-missed':'');
+
+  // Save to API
+  api({ action:'saveReport', member:state.member.id, period:state.period, task:taskId, status:status, note:note })
+    .then(function() {
+      var tick = document.getElementById('tick-'+taskId);
+      tick.classList.add('show');
+      setTimeout(function(){ tick.classList.remove('show'); }, 2000);
+    });
+}
+</script>
+</body>
+</html>

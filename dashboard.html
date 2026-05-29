@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PI Dashboard — Μοριακή Οικολογία</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  :root {
+    --bg:#F7F6F2; --surface:#FFFFFF; --border:#E2E0D8;
+    --text:#1A1916; --muted:#7A7870;
+    --accent:#1A4A2E; --accent-l:#EAF3DE;
+    --warn:#7A4A00; --warn-l:#FFF3DC;
+    --danger:#7A1A1A; --danger-l:#FDEAEA;
+    --sans:'IBM Plex Sans',sans-serif;
+    --mono:'IBM Plex Mono',monospace;
+    --r:6px;
+  }
+  body { font-family:var(--sans); background:var(--bg); color:var(--text); font-size:14px; }
+
+  #login { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .login-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:36px; width:340px; }
+  .login-box h1 { font-size:16px; font-weight:500; margin-bottom:6px; }
+  .login-box p  { font-size:13px; color:var(--muted); margin-bottom:20px; }
+  .login-box input { width:100%; border:1px solid var(--border); border-radius:var(--r); padding:9px 12px; font-size:14px; font-family:var(--mono); background:var(--bg); color:var(--text); margin-bottom:12px; }
+  .login-box input:focus { outline:none; border-color:var(--accent); }
+  .login-box button { width:100%; padding:10px; background:var(--accent); color:#fff; border:none; border-radius:var(--r); cursor:pointer; font-size:14px; font-family:var(--sans); }
+  .err { font-size:12px; color:var(--danger); margin-top:8px; display:none; }
+
+  #dashboard { display:none; max-width:900px; margin:0 auto; padding:28px 24px; }
+
+  .dash-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; }
+  .dash-header h1 { font-size:17px; font-weight:500; }
+  .period-sel { display:flex; align-items:center; gap:10px; }
+  .period-sel select { border:1px solid var(--border); border-radius:var(--r); padding:7px 10px; font-size:13px; font-family:var(--mono); background:var(--surface); color:var(--text); cursor:pointer; }
+  .refresh-btn { padding:7px 14px; border:1px solid var(--border); border-radius:var(--r); background:var(--surface); cursor:pointer; font-size:13px; color:var(--muted); }
+  .refresh-btn:hover { color:var(--text); }
+
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:28px; }
+  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:14px 18px; }
+  .kpi .k-label { font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .kpi .k-val   { font-size:26px; font-weight:500; font-family:var(--mono); }
+  .kpi .k-val.green  { color:#0F6E56; }
+  .kpi .k-val.amber  { color:#854F0B; }
+  .kpi .k-val.red    { color:#993C1D; }
+
+  .two-col { display:grid; grid-template-columns:1fr 360px; gap:20px; }
+
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; margin-bottom:20px; }
+  .panel-head { padding:12px 16px; border-bottom:1px solid var(--border); font-weight:500; font-size:13px; display:flex; align-items:center; justify-content:space-between; }
+  .panel-head span { font-size:12px; color:var(--muted); font-weight:400; font-family:var(--mono); }
+
+  .member-row { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; cursor:pointer; transition:background 0.1s; }
+  .member-row:last-child { border-bottom:none; }
+  .member-row:hover { background:var(--bg); }
+  .member-row.expanded { background:#F0F8F4; }
+  .av { width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:500; flex-shrink:0; }
+  .m-info { flex:1; min-width:0; }
+  .m-info .m-name { font-weight:500; font-size:13px; }
+  .m-info .m-sub  { font-size:12px; color:var(--muted); }
+  .pbar-wrap { width:120px; }
+  .pbar { height:5px; background:var(--border); border-radius:3px; overflow:hidden; margin-bottom:3px; }
+  .pbar-fill { height:100%; border-radius:3px; }
+  .pbar-fill.g { background:#1D9E75; }
+  .pbar-fill.a { background:#EF9F27; }
+  .pbar-fill.r { background:#E24B4A; }
+  .pct-txt { font-size:12px; font-family:var(--mono); color:var(--muted); }
+
+  .task-expand { background:#F7FBF8; border-top:1px solid #D2EDDF; display:none; }
+  .task-expand.open { display:block; }
+  .te-row { padding:8px 16px 8px 58px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); font-size:13px; }
+  .te-row:last-child { border-bottom:none; }
+  .te-task { flex:1; color:var(--text); }
+  .te-freq  { font-size:11px; font-family:var(--mono); color:var(--muted); margin-right:12px; }
+  .st-badge { font-size:11px; padding:2px 10px; border-radius:20px; font-weight:500; }
+  .st-done   { background:#EAF3DE; color:#3B6D11; }
+  .st-miss   { background:#FCEBEB; color:#A32D2D; }
+  .st-pend   { background:#FFF3DC; color:#854F0B; }
+  .te-note   { font-size:12px; color:var(--muted); margin-left:10px; font-style:italic; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .pending-item { padding:12px 16px; border-bottom:1px solid var(--border); font-size:13px; }
+  .pending-item:last-child { border-bottom:none; }
+  .pi-task { font-weight:500; margin-bottom:2px; }
+  .pi-who  { font-size:12px; color:var(--muted); }
+
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:-3px; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .no-items { padding:20px 16px; font-size:13px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-box">
+    <h1>PI Dashboard</h1>
+    <p>Εργαστήριο Μοριακής Οικολογίας</p>
+    <input type="password" id="token-input" placeholder="Token πρόσβασης..." onkeydown="if(event.key==='Enter')doLogin()" />
+    <button onclick="doLogin()">Είσοδος</button>
+    <div class="err" id="login-err">Λάθος token</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="dash-header">
+    <h1>Dashboard εργαστηρίου</h1>
+    <div class="period-sel">
+      <select id="period-sel" onchange="loadDashboard()"></select>
+      <button class="refresh-btn" onclick="loadDashboard()"><span class="spinner" id="spin" style="display:none"></span>Ανανέωση</button>
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpi-row">
+    <div class="kpi"><div class="k-label">Φόρτωση...</div><div class="k-val">—</div></div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="panel">
+        <div class="panel-head">Πρόοδος ανά μέλος <span>κλικ για λεπτομέρειες</span></div>
+        <div id="member-list"></div>
+      </div>
+    </div>
+    <div>
+      <div class="panel">
+        <div class="panel-head">Εκκρεμότητες <span id="pend-count"></span></div>
+        <div id="pending-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var API_URL = 'https://script.google.com/macros/s/AKfycbxqvrbdlhbma911FQZMA3VIUjMYu-v8NRprEbI9Hh24JBTk_SQoyKA-2RShhcSSACY8/exec'; // ← ΑΛΛΑΞΕ
+var PI_TOKEN = '';
+var dashData = null;
+
+// Build period options (last 6)
+function buildPeriods() {
+  var sel = document.getElementById('period-sel');
+  var d = new Date();
+  for (var i = 0; i < 8; i++) {
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0');
+    var h = d.getDate()<=15?'A':'B';
+    var key = y+'-'+m+'-'+h;
+    var months = ['','Ιαν','Φεβ','Μαρ','Απρ','Μάι','Ιούν','Ιούλ','Αύγ','Σεπ','Οκτ','Νοε','Δεκ'];
+    var label = months[parseInt(m)]+' '+y+' · '+(h==='A'?'1–15':'16–τέλος');
+    var opt = document.createElement('option');
+    opt.value=key; opt.textContent=label;
+    sel.appendChild(opt);
+    // Move back half-month
+    if (h==='A') { d.setDate(d.getDate()-1); } // go to prev month B
+    else d.setDate(1);
+  }
+}
+
+function doLogin() {
+  var t = document.getElementById('token-input').value.trim();
+  if (!t) return;
+  PI_TOKEN = t;
+  loadDashboard();
+}
+
+function api(params) {
+  var url = API_URL + '?' + Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
+  return fetch(url).then(function(r){ return r.json(); });
+}
+
+function loadDashboard() {
+  var period = document.getElementById('period-sel').value;
+  document.getElementById('spin').style.display='inline-block';
+  api({ action:'getDashboard', token:PI_TOKEN, period:period }).then(function(data) {
+    document.getElementById('spin').style.display='none';
+    if (data.error==='Unauthorized') {
+      document.getElementById('login-err').style.display='block';
+      return;
+    }
+    document.getElementById('login-err').style.display='none';
+    document.getElementById('login').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    dashData = data;
+    renderDashboard(data);
+  }).catch(function() {
+    document.getElementById('spin').style.display='none';
+    document.getElementById('login-err').textContent='Σφάλμα σύνδεσης';
+    document.getElementById('login-err').style.display='block';
+  });
+}
+
+function renderDashboard(data) {
+  var s = data.summary;
+  var totalTasks=0, totalDone=0, totalPend=0, totalMiss=0;
+  s.forEach(function(ms){ totalTasks+=ms.done+ms.pending+ms.missed; totalDone+=ms.done; totalPend+=ms.pending; totalMiss+=ms.missed; });
+  var pct = totalTasks ? Math.round(totalDone/totalTasks*100) : 0;
+  var cls = pct>=80?'green':pct>=60?'amber':'red';
+
+  document.getElementById('kpi-row').innerHTML =
+    kpi('Συνολική ολοκλήρωση', pct+'%', cls) +
+    kpi('Εκτελέστηκαν', totalDone, 'green') +
+    kpi('Εκκρεμείς', totalPend, 'amber') +
+    kpi('Παραλείφθηκαν', totalMiss, totalMiss>0?'red':'green');
+
+  // Members
+  var ml = document.getElementById('member-list');
+  ml.innerHTML = '';
+  s.forEach(function(ms) {
+    var pct = ms.pct, cls = pct>=80?'g':pct>=60?'a':'r';
+    var row = document.createElement('div');
+    row.className = 'member-row';
+    row.id = 'mr-'+ms.member.id;
+    row.innerHTML =
+      '<div class="av">'+ms.member.initials+'</div>'+
+      '<div class="m-info"><div class="m-name">'+ms.member.name+'</div><div class="m-sub">'+ms.done+'✓ '+ms.pending+'⏳'+(ms.missed?' '+ms.missed+'✕':'')+'</div></div>'+
+      '<div class="pbar-wrap"><div class="pbar"><div class="pbar-fill '+cls+'" style="width:'+pct+'%"></div></div><div class="pct-txt">'+pct+'%</div></div>';
+    row.onclick = function(){ toggleExpand(ms); };
+
+    var expand = document.createElement('div');
+    expand.className = 'task-expand';
+    expand.id = 'exp-'+ms.member.id;
+    ms.tasks.forEach(function(t) {
+      var s = t.status, sc = s==='done'?'st-done':s==='missed'?'st-miss':'st-pend';
+      var sl = s==='done'?'Έγινε':s==='missed'?'Παραλείφθηκε':'Εκκρεμεί';
+      expand.innerHTML += '<div class="te-row"><span class="te-task">'+t.label+'</span><span class="te-freq">'+t.freq+'</span><span class="st-badge '+sc+'">'+sl+'</span>'+(t.note?'<span class="te-note">'+t.note+'</span>':'')+'</div>';
+    });
+
+    ml.appendChild(row);
+    ml.appendChild(expand);
+  });
+
+  // Pending
+  var pendItems = [];
+  s.forEach(function(ms){ ms.tasks.forEach(function(t){ if(t.status!=='done') pendItems.push({ms:ms,t:t}); }); });
+  pendItems.sort(function(a,b){ return a.t.status==='missed'?-1:1; });
+  document.getElementById('pend-count').textContent = pendItems.length;
+  var pl = document.getElementById('pending-list');
+  if (!pendItems.length) { pl.innerHTML='<div class="no-items">Δεν υπάρχουν εκκρεμότητες 🎉</div>'; return; }
+  pl.innerHTML = pendItems.slice(0,10).map(function(x){
+    var sc = x.t.status==='missed'?'st-miss':'st-pend';
+    var sl = x.t.status==='missed'?'Παραλείφθηκε':'Εκκρεμεί';
+    return '<div class="pending-item"><div class="pi-task">'+x.t.label+'</div><div class="pi-who">'+x.ms.member.name+' · '+x.t.freq+' <span class="st-badge '+sc+'">'+sl+'</span></div></div>';
+  }).join('');
+}
+
+function kpi(label, val, cls) {
+  return '<div class="kpi"><div class="k-label">'+label+'</div><div class="k-val '+cls+'">'+val+'</div></div>';
+}
+
+function toggleExpand(ms) {
+  var exp = document.getElementById('exp-'+ms.member.id);
+  var row = document.getElementById('mr-'+ms.member.id);
+  var isOpen = exp.classList.contains('open');
+  document.querySelectorAll('.task-expand').forEach(function(e){ e.classList.remove('open'); });
+  document.querySelectorAll('.member-row').forEach(function(r){ r.classList.remove('expanded'); });
+  if (!isOpen) { exp.classList.add('open'); row.classList.add('expanded'); }
+}
+
+buildPeriods();
+</script>
+</body>
+</html>
