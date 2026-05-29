@@ -161,7 +161,7 @@
 </div>
 
 <script>
-var API_URL = 'https://script.google.com/macros/s/AKfycbweuvlgV-8318Xry_lT97aPBhp6975lIKZCZUDDx4Bhlr5hXZPKNKuBmu1qdBT7cfl1/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycby1lKO-dtaA_HJ-STOKtfVE-8C8cb_hXvtObFKxH_s87p_e0LpN6DqWoDsVy-GS__-R/exec';
 var PI_TOKEN = '';
 var dashData = null;
 
@@ -325,51 +325,17 @@ function openReport(e, memberId, memberName) {
   // Μάζεψε δεδομένα για το μέλος από όλες τις φορτωμένες περιόδους
   var memberSummary = dashData ? dashData.summary.find(function(ms){ return ms.member.id===memberId; }) : null;
 
-  api({ action:'getMemberHistory', token:PI_TOKEN, member:memberId }).then(function(hist) {
-    var histData = hist.history || [];
-    var prompt = buildReportPrompt(memberName, memberSummary, histData);
-    return callClaudeAPI(prompt);
-  }).then(function(text) {
+  api({ action:'generateReport', token:PI_TOKEN, member:memberId, name:memberName })
+  .then(function(result) {
+    if (result.error) throw new Error(result.error);
     document.getElementById('modal-body').innerHTML =
-      '<div class="report-text">'+text+'</div>'+
+      '<div class="report-text">'+result.text+'</div>'+
       '<button class="copy-btn" onclick="copyReport()">📋 Αντιγραφή κειμένου</button>';
-  }).catch(function() {
-    document.getElementById('modal-body').innerHTML = '<div class="report-text">Σφάλμα κατά την παραγωγή αναφοράς. Δοκίμασε ξανά.</div>';
+  }).catch(function(err) {
+    document.getElementById('modal-body').innerHTML = '<div class="report-text">Σφάλμα κατά την παραγωγή αναφοράς. Δοκίμασε ξανά.<br><small>'+err+'</small></div>';
   });
 }
 
-function buildReportPrompt(name, summary, history) {
-  var totalPeriods = history.length;
-  var avgPct = totalPeriods ? Math.round(history.reduce(function(a,h){ return a+h.pct; },0)/totalPeriods) : (summary?summary.pct:0);
-  var totalDone = history.reduce(function(a,h){ return a+h.done; },0) + (summary?summary.done:0);
-  var totalMissed = history.reduce(function(a,h){ return a+h.missed; },0) + (summary?summary.missed:0);
-  var totalTasks = totalDone + totalMissed + history.reduce(function(a,h){ return a+h.pending; },0) + (summary?summary.pending:0);
-
-  return 'Είσαι ο διευθυντής εργαστηρίου Μοριακής Οικολογίας. Βάσει των παρακάτω στοιχείων, γράψε μια αξιολόγηση για τον/την φοιτητή/τρια ' + name + ' που θα μπορούσε να χρησιμοποιηθεί σε συστατική επιστολή για μεταπτυχιακές σπουδές ή άλλο επόμενο επίπεδο σπουδών.\n\n' +
-    'ΣΤΟΙΧΕΙΑ ΑΠΟΔΟΣΗΣ:\n' +
-    '- Μέση ολοκλήρωση καθηκόντων: ' + avgPct + '%\n' +
-    '- Συνολικά καθήκοντα που εκτελέστηκαν: ' + totalDone + '\n' +
-    '- Καθήκοντα που παραλείφθηκαν: ' + totalMissed + '\n' +
-    '- Αριθμός περιόδων αξιολόγησης: ' + (totalPeriods+1) + '\n\n' +
-    'Γράψε ένα παράγραφο (150-200 λέξεις) που να αντανακλά:\n' +
-    '1. Τη συνέπεια και αξιοπιστία του/της φοιτητή/τριας\n' +
-    '2. Την απόδοση και υπευθυνότητα στα καθήκοντα\n' +
-    '3. Την ομαδικότητα και συμβολή στη λειτουργία του εργαστηρίου\n\n' +
-    'Το κείμενο να είναι επαγγελματικό, στα ελληνικά, και να αντικατοπτρίζει ειλικρινά την επίδοση βάσει των αριθμητικών δεδομένων. Αν η απόδοση είναι χαμηλή, να το αναφέρεις με διπλωματικό τρόπο.';
-}
-
-function callClaudeAPI(prompt) {
-  return fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  }).then(function(r){ return r.json(); })
-    .then(function(d){ return d.content[0].text; });
-}
 
 function copyReport() {
   var text = document.querySelector('.report-text').textContent;
