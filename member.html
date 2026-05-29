@@ -9,7 +9,7 @@
 <style>
   /* ── CONFIG: ΑΛΛΑΞΕ ΤΟ API_URL ── */
   :root {
-    --api: 'https://script.google.com/macros/s/AKfycbwSSXNnZP1WSN9Yg06ZYkjyM2jqa7SD027Nz1HtlUHc4DUIzDGtfxY7Cw6PgakiF3c6/exec';
+    --api: 'https://script.google.com/macros/s/AKfycbzd_Td4LZBWme1VGfNfmjWiX7_zze9SREXcaisgG9S_3FaACtWSpZMDD7OFea8ui5No/exec';
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -145,7 +145,7 @@
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
-var API_URL = 'https://script.google.com/macros/s/AKfycbwSSXNnZP1WSN9Yg06ZYkjyM2jqa7SD027Nz1HtlUHc4DUIzDGtfxY7Cw6PgakiF3c6/exec'; // ← ΑΛΛΑΞΕ ΑΠΟ ΤΟ APPS SCRIPT DEPLOY URL
+var API_URL = 'https://script.google.com/macros/s/AKfycbzd_Td4LZBWme1VGfNfmjWiX7_zze9SREXcaisgG9S_3FaACtWSpZMDD7OFea8ui5No/exec'; // ← ΑΛΛΑΞΕ ΑΠΟ ΤΟ APPS SCRIPT DEPLOY URL
 
 // ── STATE ─────────────────────────────────────────────────────
 var state = { member: null, tasks: [], reports: {}, period: '' };
@@ -174,38 +174,35 @@ function api(params) {
 }
 
 // ── BOOT ──────────────────────────────────────────────────────
-var ALL_MEMBERS = [
-  {id:'alonaris',name:'Αλωνάρης',initials:'ΑΛ'},
-  {id:'spanou',name:'Σπάνου',initials:'ΣΠ'},
-  {id:'triantafyllou',name:'Τριανταφύλλου',initials:'ΤΡ'},
-  {id:'zachariadou',name:'Ζαχαριάδου',initials:'ΖΑ'},
-  {id:'papadaki',name:'Παπαδάκη',initials:'ΠΑ'},
-  {id:'protopappas',name:'Πρωτόπαππας',initials:'ΠΡ'},
-  {id:'konstantinidis',name:'Κωνσταντινίδη',initials:'ΚΩ'},
-  {id:'lepenos',name:'Λεπενού',initials:'ΛΕ'},
-  {id:'stranga',name:'Στράγγα',initials:'ΣΤ'},
-  {id:'mparklessia',name:'Μπαρκλέσια',initials:'ΜΠ'},
-];
+var ALL_MEMBERS = [];
 
 window.addEventListener('DOMContentLoaded', function() {
-  // Render member grid
-  var grid = document.getElementById('member-grid');
-  ALL_MEMBERS.forEach(function(m) {
-    var btn = document.createElement('button');
-    btn.className = 'member-btn';
-    btn.textContent = m.name;
-    btn.onclick = function(){ loginAs(m); };
-    grid.appendChild(btn);
-  });
-
-  // Check localStorage for saved session
-  var saved = localStorage.getItem('lab_member');
-  if (saved) {
-    var m = JSON.parse(saved);
-    loginAs(m);
-  } else {
+  // Φόρτωσε μέλη δυναμικά από το Sheet
+  api({ action: 'getMembers' }).then(function(data) {
+    ALL_MEMBERS = data.members || [];
+    var grid = document.getElementById('member-grid');
+    grid.innerHTML = '';
+    ALL_MEMBERS.forEach(function(m) {
+      var btn = document.createElement('button');
+      btn.className = 'member-btn';
+      btn.textContent = m.name;
+      btn.onclick = function(){ loginAs(m); };
+      grid.appendChild(btn);
+    });
+    // Check localStorage for saved session
+    var saved = localStorage.getItem('lab_member');
+    if (saved) {
+      var savedMember = JSON.parse(saved);
+      // Ελέγξτε αν το μέλος υπάρχει ακόμα
+      var stillExists = ALL_MEMBERS.find(function(m){ return m.id === savedMember.id; });
+      if (stillExists) loginAs(stillExists);
+      else show('login-screen');
+    } else {
+      show('login-screen');
+    }
+  }).catch(function() {
     show('login-screen');
-  }
+  });
 });
 
 function show(id) {
@@ -219,18 +216,25 @@ function loginAs(member) {
   state.period = getCurrentPeriod();
   localStorage.setItem('lab_member', JSON.stringify(member));
 
-  api({ action:'getConfig', member: member.id }).then(function(cfg) {
-    if (cfg.error) { show('login-screen'); document.getElementById('login-error').textContent=cfg.error; document.getElementById('login-error').style.display='block'; return; }
-    state.member = cfg.member;
-    state.tasks  = cfg.tasks;
-    return api({ action:'getReports', member: member.id, period: state.period });
-  }).then(function(rep) {
-    if (!rep) return;
+  // Φόρτωσε config (tasks από Sheet) και reports παράλληλα
+  Promise.all([
+    api({ action:'getConfig', member: member.id }),
+    api({ action:'getReports', member: member.id, period: state.period })
+  ]).then(function(results) {
+    var cfg = results[0], rep = results[1];
+    if (cfg.error) {
+      show('login-screen');
+      document.getElementById('login-error').textContent = cfg.error;
+      document.getElementById('login-error').style.display='block';
+      return;
+    }
+    state.member  = cfg.member;
+    state.tasks   = cfg.tasks; // tasks από το Sheet δυναμικά
     state.reports = {};
     (rep.reports||[]).forEach(function(r){ state.reports[r.taskId] = r; });
     renderApp();
     show('app');
-  }).catch(function(err) {
+  }).catch(function() {
     show('login-screen');
     document.getElementById('login-error').textContent = 'Σφάλμα σύνδεσης. Δοκίμασε ξανά.';
     document.getElementById('login-error').style.display='block';
