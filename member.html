@@ -170,7 +170,7 @@ function periodEndDate(p) {
 // ── API CALLS ─────────────────────────────────────────────────
 function api(params) {
   var url = API_URL + '?' + Object.keys(params).map(function(k){ return k+'='+encodeURIComponent(params[k]); }).join('&');
-  return fetch(url).then(function(r){ return r.json(); });
+  return fetch(url, {redirect: 'follow'}).then(function(r){ return r.json(); });
 }
 
 // ── BOOT ──────────────────────────────────────────────────────
